@@ -11,7 +11,9 @@ import {
   ZoomIn,
   RefreshCw,
   Info,
-  Sliders
+  Sliders,
+  PanelRightClose,
+  PanelRightOpen
 } from 'lucide-react';
 import { WidgetNode, SourceRange, EducationalError } from '../types/flutter';
 import { FLUTTER_COLORS } from '../services/flutterParser';
@@ -23,6 +25,8 @@ interface FlutterPreviewProps {
   warnings: EducationalError[];
   isRunning: boolean;
   language: 'ar' | 'en';
+  onToggleRightPanel?: () => void;
+  isRightPanelVisible?: boolean;
 }
 
 export const FlutterPreview: React.FC<FlutterPreviewProps> = ({
@@ -32,6 +36,8 @@ export const FlutterPreview: React.FC<FlutterPreviewProps> = ({
   warnings,
   isRunning,
   language,
+  onToggleRightPanel,
+  isRightPanelVisible = true,
 }) => {
   const isAr = language === 'ar';
   const [deviceFrame, setDeviceFrame] = useState<'iphone' | 'pixel' | 'tablet' | 'responsive'>('iphone');
@@ -357,6 +363,26 @@ export const FlutterPreview: React.FC<FlutterPreviewProps> = ({
           >
             {flutterTheme === 'light' ? <Moon className="w-3.5 h-3.5 text-indigo-400" /> : <Sun className="w-3.5 h-3.5 text-amber-400" />}
           </button>
+
+          {onToggleRightPanel && (
+            <button
+              onClick={onToggleRightPanel}
+              className={`p-1 rounded text-xs transition-colors cursor-pointer border ${
+                isRightPanelVisible 
+                  ? 'border-cyan-500/30 text-cyan-300 bg-cyan-950/40' 
+                  : 'border-slate-800 text-slate-400 hover:text-slate-200 bg-slate-900'
+              }`}
+              title={isAr 
+                ? (isRightPanelVisible ? 'إخفاء شجرة الويدجتس والخصائص' : 'إظهار شجرة الويدجتس والخصائص') 
+                : (isRightPanelVisible ? 'Hide Inspector & Tree' : 'Show Inspector & Tree')}
+            >
+              {isRightPanelVisible ? (
+                <PanelRightClose className="w-3.5 h-3.5" />
+              ) : (
+                <PanelRightOpen className="w-3.5 h-3.5" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 

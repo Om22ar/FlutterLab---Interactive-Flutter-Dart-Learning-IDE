@@ -13,7 +13,8 @@ import {
   Zap,
   Globe,
   Award,
-  Search
+  Search,
+  PanelLeftClose
 } from 'lucide-react';
 import { Phase, Lesson } from '../types/flutter';
 
@@ -23,6 +24,7 @@ interface LessonSidebarProps {
   onSelectLesson: (lesson: Lesson) => void;
   completedLessons: string[];
   language: 'ar' | 'en';
+  onToggleCollapse?: () => void;
 }
 
 export const LessonSidebar: React.FC<LessonSidebarProps> = ({
@@ -31,6 +33,7 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
   onSelectLesson,
   completedLessons,
   language,
+  onToggleCollapse,
 }) => {
   const isAr = language === 'ar';
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({
@@ -64,9 +67,20 @@ export const LessonSidebar: React.FC<LessonSidebarProps> = ({
             <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
             <span>{isAr ? 'المسار التعليمي' : 'Curriculum'}</span>
           </span>
-          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-800/80 px-1.5 py-0.5 rounded">
-            {completedLessons.length} {isAr ? 'مكتمل' : 'done'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 border border-cyan-800/80 px-1.5 py-0.5 rounded">
+              {completedLessons.length} {isAr ? 'مكتمل' : 'done'}
+            </span>
+            {onToggleCollapse && (
+              <button
+                onClick={onToggleCollapse}
+                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors cursor-pointer"
+                title={isAr ? 'إخفاء المسار التعليمي (لزيادة مساحة العرض)' : 'Hide sidebar for more workspace'}
+              >
+                <PanelLeftClose className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filter Input */}

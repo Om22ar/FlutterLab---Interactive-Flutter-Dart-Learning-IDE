@@ -7,41 +7,54 @@ import {
   Bot, 
   Sparkles, 
   HelpCircle, 
-  ArrowRight,
-  ExternalLink,
-  Send,
-  Loader2,
-  Lightbulb,
+  ArrowRight, 
+  Send, 
+  Loader2, 
+  Lightbulb, 
   ShieldAlert,
-  ChevronRight
+  ChevronRight,
+  Code2,
+  Check,
+  RotateCcw,
+  PanelBottomClose
 } from 'lucide-react';
-import { EducationalError, ExerciseTest, Lesson } from '../types/flutter';
-import { EvaluationResult } from '../services/testEngine';
-import { askAiTutor, AiTutorMode, AiTutorResponse } from '../services/aiTutorService';
+import { EducationalError, Lesson } from '../types/flutter';
+import { DetailedEvaluationResult } from '../services/detailedTestEngine';
+import { askAiTutor, AiTutorMode } from '../services/aiTutorService';
+import { TestingPanel } from './TestingPanel';
+import { categorizeError } from '../services/errorCategorizer';
 
 interface ConsolePanelProps {
   logs: { type: 'info' | 'warning' | 'error' | 'test' | 'change'; message: string; timestamp: string }[];
   errors: EducationalError[];
-  evaluation: EvaluationResult | null;
+  rawCompilerErrors?: string[];
+  detailedEvaluation: DetailedEvaluationResult | null;
   lesson: Lesson | null;
   code: string;
   onGoToLine: (line: number) => void;
   onApplySolution: (solutionCode: string) => void;
+  onRunCode: () => void;
+  onOpenSolutionDiff: () => void;
   language: 'ar' | 'en';
+  onToggleCollapse?: () => void;
 }
 
 export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   logs,
   errors,
-  evaluation,
+  rawCompilerErrors = [],
+  detailedEvaluation,
   lesson,
   code,
   onGoToLine,
   onApplySolution,
+  onRunCode,
+  onOpenSolutionDiff,
   language,
+  onToggleCollapse,
 }) => {
   const isAr = language === 'ar';
-  const [activeTab, setActiveTab] = useState<'console' | 'errors' | 'tests' | 'ai'>('tests');
+  const [activeTab, setActiveTab] = useState<'tests' | 'errors' | 'console' | 'ai'>('tests');
 
   // AI Tutor State
   const [aiPrompt, setAiPrompt] = useState('');
@@ -59,12 +72,18 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
   const [hintAttempt, setHintAttempt] = useState<number>(1);
   const [showSolutionConfirm, setShowSolutionConfirm] = useState(false);
 
+  // Map any raw compiler errors to EducationalError using categorizeError
+  const combinedErrors: EducationalError[] = [
+    ...errors,
+    ...rawCompilerErrors.map(raw => categorizeError(raw, code)),
+  ];
+
   // Switch to errors tab automatically if syntax/compiler error occurs
   React.useEffect(() => {
-    if (errors.length > 0) {
+    if (combinedErrors.length > 0) {
       setActiveTab('errors');
     }
-  }, [errors]);
+  }, [combinedErrors.length]);
 
   const handleAskAI = async (mode: AiTutorMode, customPrompt?: string) => {
     setAiLoading(true);
@@ -82,7 +101,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
         code,
         lessonTitle: lesson?.title || 'Flutter Playground',
         lessonConcept: lesson?.concept || 'Core Flutter Widgets',
-        errorMessage: errors.length > 0 ? errors[0].message : undefined,
+        errorMessage: combinedErrors.length > 0 ? combinedErrors[0].message : undefined,
         attemptNumber: hintAttempt,
         userPrompt: promptText,
         language
@@ -119,26 +138,26 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
       {/* Panel Tab Navigation Bar */}
       <div className="h-10 bg-slate-900/90 border-b border-slate-800/80 px-3 flex items-center justify-between select-none">
         <div className="flex items-center gap-1">
-          {/* Test Results Tab */}
+          {/* Detailed Test Results Tab (Testing Panel) */}
           <button
             onClick={() => setActiveTab('tests')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'tests'
-                ? 'bg-slate-800 text-cyan-300 border border-slate-700'
+                ? 'bg-slate-800 text-cyan-300 border border-slate-700 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            {evaluation?.allPassed ? (
+            {detailedEvaluation?.allPassed ? (
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
             ) : (
               <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
             )}
-            <span>{isAr ? 'نتائج التقييم (Tests)' : 'Tests'}</span>
-            {evaluation && (
+            <span>{isAr ? 'لوحة الاختبارات (Testing Panel)' : 'Testing Panel'}</span>
+            {detailedEvaluation && (
               <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                evaluation.allPassed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-300'
+                detailedEvaluation.allPassed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-300'
               }`}>
-                {evaluation.passCount}/{evaluation.totalCount}
+                {detailedEvaluation.passCount}/{detailedEvaluation.totalCount}
               </span>
             )}
           </button>
@@ -148,15 +167,15 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
             onClick={() => setActiveTab('errors')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'errors'
-                ? 'bg-slate-800 text-rose-300 border border-slate-700'
+                ? 'bg-slate-800 text-rose-300 border border-slate-700 font-bold'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
             <span>{isAr ? 'تحليل الأخطاء التعليمي' : 'Error Layer'}</span>
-            {errors.length > 0 && (
+            {combinedErrors.length > 0 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">
-                {errors.length}
+                {combinedErrors.length}
               </span>
             )}
           </button>
@@ -179,7 +198,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
             onClick={() => setActiveTab('ai')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'ai'
-                ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-700/60'
+                ? 'bg-indigo-950/60 text-indigo-300 border border-indigo-700/60 font-bold'
                 : 'text-indigo-400/80 hover:text-indigo-300'
             }`}
           >
@@ -188,148 +207,66 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
           </button>
         </div>
 
-        {/* Quick Help / Hint Action */}
+        {/* Quick Actions (Hint & Solution Diff) */}
         <div className="flex items-center gap-2">
           {lesson && (
+            <>
+              <button
+                onClick={onOpenSolutionDiff}
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                title={isAr ? 'مقارنة الكود بالحل النموذجي' : 'Compare with solution code'}
+              >
+                <Code2 className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">{isAr ? 'مقارنة الحل' : 'Diff'}</span>
+              </button>
+
+              <button
+                onClick={() => handleAskAI('hint', isAr ? 'أعطني تلميحاً للخطوة التالية' : 'Give me a hint for the next step')}
+                className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isAr ? `تلميح ${hintAttempt}` : `Hint ${hintAttempt}`}</span>
+              </button>
+            </>
+          )}
+
+          {onToggleCollapse && (
             <button
-              onClick={() => handleAskAI('hint', isAr ? 'أعطني تلميحاً للخطوة التالية' : 'Give me a hint for the next step')}
-              className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+              onClick={onToggleCollapse}
+              className="p-1 hover:bg-slate-800 text-slate-400 hover:text-slate-200 rounded transition-colors cursor-pointer ml-1"
+              title={isAr ? 'تصغير / إخفاء لوحة التحكم للاختبارات (لتوسيع المحرر)' : 'Minimize panel for more editor space'}
             >
-              <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
-              <span>{isAr ? `تلميح ${hintAttempt}` : `Hint ${hintAttempt}`}</span>
+              <PanelBottomClose className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       </div>
 
       {/* Tab Panels Content */}
-      <div className="flex-1 overflow-auto p-4">
-        {/* Tab 1: Test Results */}
+      <div className="flex-1 overflow-auto">
+        {/* Tab 1: Detailed Testing Panel */}
         {activeTab === 'tests' && (
-          <div className="space-y-3">
-            {evaluation ? (
-              <>
-                {evaluation.allPassed ? (
-                  <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                        <CheckCircle2 className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-emerald-300">
-                          {isAr ? 'اكتمل التمرين بنجاح!' : 'Challenge Completed Successfully!'}
-                        </h4>
-                        <p className="text-[11px] text-emerald-400/80">
-                          {isAr ? 'تم استيفاء جميع المتطلبات البصرية والهيكلية.' : 'All widget structure and property assertions passed.'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
-                    <span className="text-slate-400">
-                      {isAr 
-                        ? `اجتاز الكود ${evaluation.passCount} من أصل ${evaluation.totalCount} اختبارات.` 
-                        : `Code passed ${evaluation.passCount} of ${evaluation.totalCount} tests.`}
-                    </span>
-                    <button
-                      onClick={() => handleAskAI('hint')}
-                      className="text-xs text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <Lightbulb className="w-3 h-3" />
-                      <span>{isAr ? 'أحتاج مساعدة' : 'Need guidance?'}</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Individual test assertions list */}
-                <div className="space-y-2">
-                  {evaluation.testResults.map((tr, index) => (
-                    <div 
-                      key={tr.test.id || index}
-                      className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 transition-all ${
-                        tr.passed 
-                          ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-200' 
-                          : 'bg-rose-950/20 border-rose-900/40 text-rose-200'
-                      }`}
-                    >
-                      {tr.passed ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                      )}
-
-                      <div className="flex-1 space-y-0.5">
-                        <div className="font-semibold text-xs flex items-center justify-between">
-                          <span>{isAr ? tr.test.descriptionAr : tr.test.description}</span>
-                          <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${
-                            tr.passed ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                          }`}>
-                            {tr.passed ? 'PASS' : 'FAIL'}
-                          </span>
-                        </div>
-                        <p className="text-[11px] opacity-80">{tr.reason}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Show Solution Accordion */}
-                {lesson && !evaluation.allPassed && (
-                  <div className="pt-2">
-                    {!showSolutionConfirm ? (
-                      <button
-                        onClick={() => setShowSolutionConfirm(true)}
-                        className="text-xs text-slate-500 hover:text-slate-400 underline cursor-pointer"
-                      >
-                        {isAr ? 'كشف كود الحل النموذجي' : 'Reveal Solution Code'}
-                      </button>
-                    ) : (
-                      <div className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-xl space-y-2 text-xs">
-                        <p className="text-amber-300">
-                          {isAr 
-                            ? 'هل أنت متأكد؟ محاولة حل التمرين بنفسك تعزز نموذجك الذهني لفلاتر!' 
-                            : 'Are you sure? Solving it yourself strengthens your Flutter mental model!'}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              onApplySolution(lesson.solutionCode);
-                              setShowSolutionConfirm(false);
-                            }}
-                            className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-xs font-semibold cursor-pointer"
-                          >
-                            {isAr ? 'تطبيق الحل في المحرر' : 'Apply Solution to Editor'}
-                          </button>
-                          <button
-                            onClick={() => setShowSolutionConfirm(false)}
-                            className="px-2 py-1 text-slate-400 hover:text-white text-xs cursor-pointer"
-                          >
-                            {isAr ? 'إلغاء' : 'Cancel'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-xs text-slate-500">{isAr ? 'اضغط على زر تشغيل (Run) لاختبار الكود.' : 'Run your code to run tests.'}</p>
-            )}
-          </div>
+          <TestingPanel
+            detailedEvaluation={detailedEvaluation}
+            lesson={lesson}
+            language={language}
+            onRunCode={onRunCode}
+            onAskAiForHint={() => handleAskAI('hint')}
+            onOpenSolutionDiff={onOpenSolutionDiff}
+          />
         )}
 
-        {/* Tab 2: Educational Error Layer (Section 47) */}
+        {/* Tab 2: Educational Error Layer (categorizeError) */}
         {activeTab === 'errors' && (
-          <div className="space-y-4">
-            {errors.length === 0 ? (
+          <div className="p-4 space-y-4">
+            {combinedErrors.length === 0 ? (
               <div className="p-6 text-center text-slate-500 space-y-2">
                 <CheckCircle2 className="w-8 h-8 mx-auto text-emerald-500" />
                 <p className="text-xs text-emerald-400 font-semibold">{isAr ? 'لا توجد أخطاء في الكود!' : 'No compilation or syntax errors found!'}</p>
                 <p className="text-[11px] text-slate-400">{isAr ? 'الكود سليم وقابل للتنفيذ على Flutter Web.' : 'Code syntax is valid and runnable.'}</p>
               </div>
             ) : (
-              errors.map((err, idx) => (
+              combinedErrors.map((err, idx) => (
                 <div key={idx} className="p-4 bg-rose-950/30 border border-rose-800/60 rounded-xl space-y-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
@@ -349,20 +286,25 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
                     )}
                   </div>
 
-                  {/* What Happened */}
-                  <div className="space-y-1 text-xs">
-                    <span className="font-semibold text-slate-400 uppercase tracking-wider text-[10px] block">
-                      {isAr ? 'ما الذي حدث؟ (What happened)' : 'What happened:'}
-                    </span>
-                    <p className="text-slate-200">{isAr ? err.explanationAr : err.explanation}</p>
+                  {/* Raw message */}
+                  <div className="bg-slate-950/60 p-2 rounded border border-rose-900/40 font-mono text-[11px] text-rose-300">
+                    {err.message}
                   </div>
 
-                  {/* How to think / Try this */}
-                  <div className="space-y-1 text-xs bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
-                    <span className="font-semibold text-cyan-400 uppercase tracking-wider text-[10px] block">
-                      {isAr ? 'جرب هذا الحل (Try this):' : 'Try this:'}
+                  {/* What This Means */}
+                  <div className="space-y-1 text-xs">
+                    <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px] block">
+                      {isAr ? 'ما الذي يعنيه هذا الخطأ؟ (What this means):' : 'What this means:'}
                     </span>
-                    <p className="text-slate-300">{isAr ? err.suggestionAr : err.suggestion}</p>
+                    <p className="text-slate-200 leading-relaxed">{isAr ? err.explanationAr : err.explanation}</p>
+                  </div>
+
+                  {/* Actionable Try This */}
+                  <div className="space-y-1 text-xs bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                    <span className="font-bold text-cyan-400 uppercase tracking-wider text-[10px] block">
+                      {isAr ? 'خطوات تصحيح الخطأ (Try this):' : 'Try this:'}
+                    </span>
+                    <p className="text-slate-300 leading-relaxed">{isAr ? err.suggestionAr : err.suggestion}</p>
                   </div>
                 </div>
               ))
@@ -372,7 +314,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
 
         {/* Tab 3: Console Logs */}
         {activeTab === 'console' && (
-          <div className="font-mono text-xs space-y-1 text-slate-300">
+          <div className="p-4 font-mono text-xs space-y-1 text-slate-300">
             {logs.map((log, index) => (
               <div key={index} className="flex items-start gap-2 py-0.5">
                 <span className="text-slate-500 text-[10px]">{log.timestamp}</span>
@@ -392,7 +334,7 @@ export const ConsolePanel: React.FC<ConsolePanelProps> = ({
 
         {/* Tab 4: AI Coach & Tutor */}
         {activeTab === 'ai' && (
-          <div className="flex flex-col h-full space-y-3">
+          <div className="flex flex-col h-full space-y-3 p-4">
             {/* Quick Action Pills for AI Modes */}
             <div className="flex flex-wrap gap-1.5 pb-2 border-b border-slate-800/80">
               <button
