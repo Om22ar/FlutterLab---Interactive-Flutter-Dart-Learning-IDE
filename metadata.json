@@ -1,0 +1,6 @@
+{
+  "name": "FlutterLab - Interactive Flutter & Dart Learning IDE",
+  "description": "منصة تفاعلية متكاملة لتعليم Dart وFlutter مع محرر كود فوري، معاينة حية، فاحص الشجرة البرمجية Widget Tree، تقييم تلقائي، وتوجيه ذكي بواسطة الذكاء الاصطناعي.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
